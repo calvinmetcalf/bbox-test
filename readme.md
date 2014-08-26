@@ -17,10 +17,12 @@ done
 - multipoint
 - linestring
 - multilinestring
+- polygon
+- multipolygon
 
 todo
 ===
 
-- polygon
-- multipolygon
-- n-dimentional linestrings
+- testing
+- testing
+- testing

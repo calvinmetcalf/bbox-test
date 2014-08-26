@@ -8,17 +8,17 @@ function bboxTest(bbox, geometry) {
   }
   if (bbox.length === 4) {
     // standard geojson bbox
-    bbox = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]]
+    bbox = [[bbox[0], bbox[1]], [bbox[2], bbox[3]]];
   }
   var type = geometry.type;
   switch (type)  {
-    case: 'Point': return point(bbox, geometry);
-    case: 'MultiPoint': return multiPoint(bbox, geometry);
-    case: 'LineString': return lineString(bbox, geometry.coordinates);
-    case: 'MultiLineString': return multiLineString(bbox, geometry);
-    case: 'Polygon': return polygon(bbox, geometry);
-    case: 'MultiPolygon': return multiPolygon(bbox, geometry);
-    case: 'GeometryCollection': return geometryCollection(bbox, geometry.geometries);
+    case 'Point': return point(bbox, geometry);
+    case 'MultiPoint': return multiPoint(bbox, geometry);
+    case 'LineString': return lineString(bbox, geometry.coordinates);
+    case 'MultiLineString': return multiLineString(bbox, geometry);
+    case 'Polygon': return polygon(bbox, geometry);
+    case 'MultiPolygon': return multiPolygon(bbox, geometry);
+    case 'GeometryCollection': return geometryCollection(bbox, geometry.geometries);
   }
 }
 function point (bbox, geometry) {
@@ -28,11 +28,10 @@ function multiPoint (bbox, geometry) {
   var len = geometry.coordinates.length;
   var i = -1;
   while (++i < len) {
-    if (pointInBbox(bbox, geometry.coordinates[i]) {
+    if (pointInBbox(bbox, geometry.coordinates[i])) {
       return true;
     }
   }
-
   return false;
 }
 function lineString (bbox, coordinates) {
@@ -65,6 +64,69 @@ function multiLineString(bbox, geometry) {
   }
   return false;
 }
+function polygon (bbox, rings) {
+  var coordinates = rings[0];
+  var intersect = ring(bbox, coordinates);
+  if (intersect !== 'maybe') {
+    return intersect;
+  }
+  var len = rings.length;
+  if (len === 1) {
+    // no interior rings
+    return true;
+  }
+  var i = 0, ringInter;
+  while (++i < len) {
+    ringInter = ring(bbox, rings[i]);
+    if (ringInter === 'maybe') {
+      // we are inside an interior ring
+      return false;
+    } else if (ringInter) {
+      // we cross the boundry
+      // and thus are thus partially inside main poly
+      return true;
+    }
+  }
+  return true;
+}
+function ring(bbox, coordinates) {
+  var len = coordinates.length;
+  var i = 0;
+  var prev = coordinates[0];
+  if (pointInBbox(bbox, prev)) {
+    return true;
+  }
+  var cur;
+  while (++i < len) {
+    cur = coordinates[i];
+    if (pointInBbox(bbox, cur)) {
+      return true;
+    }
+    if (intersectsBbox(bbox, cur, prev)) {
+      return true;
+    }
+    prev = cur;
+  }
+  // if none of the points in the ring are inside the bbox
+  // and none of the lines cross it
+  // then either all of the bbox points are inside it
+  // or none are, so just test one
+  if (pointInPolygon(bbox[0], coordinates)) {
+    return 'maybe';
+  } else {
+    return false;
+  }
+}
+function multiPolygon(bbox, geometry) {
+  var i = -1;
+  var len = geometry.coordinates.length;
+  while (++i < len) {
+    if (polygon(bbox, geometry.coordinates[i])) {
+      return true;
+    }
+  }
+  return false;
+}
 function geometryCollection (bbox, geometries) {
   var i = -1;
   var len = geometries.length;
@@ -75,30 +137,41 @@ function geometryCollection (bbox, geometries) {
   }
   return false;
 }
+
 function intersectsBbox(bbox, p1, p2) {
-  var points = {
-    bl: [bbox[0][0], bbox[0][1]],
-    br:  [bbox[1][0], bbox[0][1]],
-    tl:  [bbox[0][0], bbox[1][1]],
-    tr:  [bbox[1][0], bbox[1][1]]
+  var len = Math.min(bbox[0].length, bbox[1].length, p1.length, p2.length);
+  var dirfrac = new Array(len);
+  var i = -1;
+  while (++i < len) {
+    dirfrac[i] = 1/p2[i];
   }
-  // bottom
-  if (isIntersect(points.bl, points.br, p1, p2)) {
-    return true;
+  var maxes = new Array(len);
+  var tmin = -Infinity;
+  var tmax = Infinity;
+  var mins = new Array(len);
+  i = -1;
+  var t1, t2, max, min;
+  while (++i < len) {
+    t1 = (bbox[0][i] - p1[i]) * dirfrac[i];
+    t2 = (bbox[1][i] - p1[i]) * dirfrac[i];
+    if (t1 >= t2) {
+      max = t1;
+      min = t2;
+    } else if (t1 < t2) {
+      max = t2;
+      min = t1;
+    }
+    if (min > tmin) {
+      tmin = min;
+    }
+    if (max < tmax) {
+      tmax = max;
+    }
   }
-  // left
-  if (isIntersect(points.bl, points.tl, p1, p2)) {
-    return true;
+  if (tmax < 0 || tmin > tmax) {
+    return false;
   }
-  // top
-  if (isIntersect(points.tl, points.tr, p1, p2)) {
-    return true;
-  }
-  // right
-  if (isIntersect(points.br, points.tr, p1, p2)) {
-    return true;
-  }
-  return false;
+  return true;
 }
 function pointInBbox(bbox, point) {
   var len = Math.min(bbox[0].length, bbox[1].length, point.length);
@@ -110,11 +183,40 @@ function pointInBbox(bbox, point) {
   }
   return true;
 }
-
-function ccw(p1, p2, p3) {
-  return (p3[1] - p1[1]) * (p2[0] - p1[0]) > (p2[1] - p1[1]) * (p3[0] - p1[0]);
-}
-
-function isIntersect(p1, p2, p3, p4) {
-  return ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && CCW(p1, p2, p3) !== CCW(p1, p2, p4);
+function pointInPolygon(point, polygon) {
+    // based on https://github.com/substack/point-in-polygon/blob/master/index.js
+    //which is based on
+    // http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
+    // basically we do the point in polygon, but break it down into multiple checks
+    // each with 2 dimentions
+    var i = -1;
+    var len = polygon.length;
+    var inside = [];
+    var j = len -1;
+    var plen = point.length;
+    var jp, ip, k, l, intersect, clen;
+    while (++i < len) {
+      ip = polygon[i];
+      jp = polygon[j];
+      plen = Math.min(ip.length, jp.length, plen);
+      clen = plen - 1;
+      l = -1;
+      k = clen;
+      while (++l < clen) {
+        intersect = ((ip[l] > point[l]) !== (jp[l] > point[l])) &&
+            (point[k] < (jp[k] - ip[k]) * (point[l] - ip[l]) / (jp[l] - ip[l]) + ip[k]);
+        if (intersect) {
+          inside[k] = !inside[k];
+        }
+        k = l;
+      }
+      j = i;
+    }
+    i = -1;
+    while (++i < clen) {
+      if (!inside[i]) {
+        return false;
+      }
+    }
+    return true;
 }
