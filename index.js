@@ -202,7 +202,14 @@ function pointInPolygon(point, polygon) {
       clen = plen - 1;
       l = -1;
       k = clen;
-      while (++l < clen) {
+      if (plen === 2) {
+        // special case
+        // would just be xy and yx
+        // but when we are at 3 its
+        // xy, yz, and zx and thus does matter
+        plen = 1;
+      }
+      while (++l < plen) {
         intersect = ((ip[l] > point[l]) !== (jp[l] > point[l])) &&
             (point[k] < (jp[k] - ip[k]) * (point[l] - ip[l]) / (jp[l] - ip[l]) + ip[k]);
         if (intersect) {
