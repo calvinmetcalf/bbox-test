@@ -22,7 +22,7 @@ function bboxTest(bbox, geometry) {
   }
 }
 function point (bbox, geometry) {
-  return pointInBbox(bbox, geometry.coordinate);
+  return pointInBbox(bbox, geometry.coordinates);
 }
 function multiPoint (bbox, geometry) {
   var len = geometry.coordinates.length;
@@ -194,7 +194,7 @@ function pointInPolygon(point, polygon) {
     var inside = [];
     var j = len -1;
     var plen = point.length;
-    var jp, ip, k, l, intersect, clen;
+    var jp, ip, k, l, intersect, clen, llen;
     while (++i < len) {
       ip = polygon[i];
       jp = polygon[j];
@@ -207,20 +207,22 @@ function pointInPolygon(point, polygon) {
         // would just be xy and yx
         // but when we are at 3 its
         // xy, yz, and zx and thus does matter
-        plen = 1;
+        llen = 1;
+      } else {
+        llen = plen;
       }
-      while (++l < plen) {
+      while (++l < llen) {
         intersect = ((ip[l] > point[l]) !== (jp[l] > point[l])) &&
             (point[k] < (jp[k] - ip[k]) * (point[l] - ip[l]) / (jp[l] - ip[l]) + ip[k]);
         if (intersect) {
-          inside[k] = !inside[k];
+          inside[l] = !inside[l];
         }
         k = l;
       }
       j = i;
     }
     i = -1;
-    while (++i < clen) {
+    while (++i < llen) {
       if (!inside[i]) {
         return false;
       }
