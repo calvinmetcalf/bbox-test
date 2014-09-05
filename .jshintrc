@@ -1,5 +1,4 @@
 {
-  "maxlen": 80,
   "curly": true,
   "eqeqeq": true,
   "immed": true,
@@ -15,5 +14,5 @@
   "globalstrict": true,
   "white": true,
   "indent": 2,
-  "forin": true,\
+  "forin": true
 }

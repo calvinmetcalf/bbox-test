@@ -4,7 +4,7 @@
   "description": "bbox-test ===",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.js"
   },
   "repository": {
     "type": "git",
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/calvinmetcalf/bbox-test/issues"
   },
-  "homepage": "https://github.com/calvinmetcalf/bbox-test"
+  "homepage": "https://github.com/calvinmetcalf/bbox-test",
+  "devDependencies": {
+    "tape": "^2.14.0"
+  }
 }

@@ -16,7 +16,7 @@ function bboxTest(bbox, geometry) {
     case 'MultiPoint': return multiPoint(bbox, geometry);
     case 'LineString': return lineString(bbox, geometry.coordinates);
     case 'MultiLineString': return multiLineString(bbox, geometry);
-    case 'Polygon': return polygon(bbox, geometry);
+    case 'Polygon': return polygon(bbox, geometry.coordinates);
     case 'MultiPolygon': return multiPolygon(bbox, geometry);
     case 'GeometryCollection': return geometryCollection(bbox, geometry.geometries);
   }
@@ -36,17 +36,17 @@ function multiPoint (bbox, geometry) {
 }
 function lineString (bbox, coordinates) {
   var len = coordinates.length;
-  var i = 0;
+  var i = -1;
   var prev = coordinates[0];
-  if (pointInBbox(bbox, prev)) {
-    return true;
+  while (++i < len) {
+    if (pointInBbox(bbox, coordinates[i])) {
+      return true;
+    }
   }
+  i = 0;
   var cur;
   while (++i < len) {
     cur = coordinates[i];
-    if (pointInBbox(bbox, cur)) {
-      return true;
-    }
     if (intersectsBbox(bbox, cur, prev)) {
       return true;
     }
@@ -91,17 +91,17 @@ function polygon (bbox, rings) {
 }
 function ring(bbox, coordinates) {
   var len = coordinates.length;
-  var i = 0;
+  var i = -1;
   var prev = coordinates[0];
-  if (pointInBbox(bbox, prev)) {
-    return true;
-  }
-  var cur;
-  while (++i < len) {
-    cur = coordinates[i];
-    if (pointInBbox(bbox, cur)) {
+   while (++i < len) {
+    if (pointInBbox(bbox, coordinates[i])) {
       return true;
     }
+  }
+  var cur;
+  i = 0;
+  while (++i < len) {
+    cur = coordinates[i];
     if (intersectsBbox(bbox, cur, prev)) {
       return true;
     }
@@ -137,23 +137,31 @@ function geometryCollection (bbox, geometries) {
   }
   return false;
 }
-
 function intersectsBbox(bbox, p1, p2) {
+  return intersectsBboxRay(bbox, p1, p2) && intersectsBboxRay(bbox, p2, p1);
+}
+function intersectsBboxRay(bbox, p1, p2) {
   var len = Math.min(bbox[0].length, bbox[1].length, p1.length, p2.length);
   var dirfrac = new Array(len);
   var i = -1;
   while (++i < len) {
-    dirfrac[i] = 1/p2[i];
+    dirfrac[i] = p2[i] - p1[i];
   }
-  var maxes = new Array(len);
+  var magnitude = dirfrac.reduce(function (a, b) {
+    return a + (b * b);
+  }, 0);
+  i = -1;
+  magnitude = Math.sqrt(magnitude);
+  while (++i < len) {
+    dirfrac[i] = dirfrac[i]/magnitude;
+  }
   var tmin = -Infinity;
   var tmax = Infinity;
-  var mins = new Array(len);
   i = -1;
   var t1, t2, max, min;
   while (++i < len) {
-    t1 = (bbox[0][i] - p1[i]) * dirfrac[i];
-    t2 = (bbox[1][i] - p1[i]) * dirfrac[i];
+    t1 = (bbox[0][i] - p1[i]) / dirfrac[i];
+    t2 = (bbox[1][i] - p1[i]) / dirfrac[i];
     if (t1 >= t2) {
       max = t1;
       min = t2;
@@ -168,6 +176,7 @@ function intersectsBbox(bbox, p1, p2) {
       tmax = max;
     }
   }
+  
   if (tmax < 0 || tmin > tmax) {
     return false;
   }
